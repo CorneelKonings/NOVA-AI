@@ -1,0 +1,7 @@
+{
+  "name": "NOVA AI",
+  "description": "A futuristic, friendly AI assistant named NOVA. Explores the universe with you using Gemini Live API.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
