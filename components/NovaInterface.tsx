@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Radio, Power, MessageSquare, Box, ExternalLink, Activity, Send, Terminal, Sparkles, Cpu } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Mic, MicOff, Radio, Power, MessageSquare, Box, ExternalLink, Activity, Send, Terminal, Sparkles, Cpu, Ear } from 'lucide-react';
 import { useGeminiLive } from '../hooks/useGeminiLive';
 import { useNovaChat } from '../hooks/useNovaChat';
+import { useWakeWord } from '../hooks/useWakeWord';
 import { ConnectionState } from '../types';
 import { AudioPulse } from './AudioPulse';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,13 +16,24 @@ export const NovaInterface: React.FC = () => {
   const { chatMessages, sendMessage, isChatLoading } = useNovaChat();
 
   const [viewMode, setViewMode] = useState<ViewMode>('voice');
-  const [isMuted, setIsMuted] = useState(false);
   const [chatInput, setChatInput] = useState('');
   
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
   const isConnected = connectionState === ConnectionState.CONNECTED;
   const isConnecting = connectionState === ConnectionState.CONNECTING;
+
+  // Wake Word Integration
+  // Only listen when: Disconnected, Not currently connecting, and in Voice Mode
+  const wakeWordEnabled = !isConnected && !isConnecting && viewMode === 'voice';
+  
+  // Memoize handleWake to prevent useEffect thrashing in useWakeWord
+  const handleWake = useCallback(() => {
+      console.log("Wake word triggered connection");
+      connect();
+  }, [connect]);
+
+  const { isListening: isWakeWordListening } = useWakeWord(handleWake, wakeWordEnabled);
 
   // Auto-scroll chat
   useEffect(() => {
@@ -54,9 +66,16 @@ export const NovaInterface: React.FC = () => {
       <div className="flex justify-between items-center p-6 z-20">
         <div className="flex items-center gap-2">
             <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-white animate-pulse shadow-[0_0_10px_white]' : 'bg-zinc-600'}`} />
-            <span className="text-xs font-mono text-zinc-300 tracking-wider">
-                {isConnected ? 'NOVA: VOICE ONLINE' : 'NOVA: STANDBY'}
-            </span>
+            <div className="flex flex-col">
+                <span className="text-xs font-mono text-zinc-300 tracking-wider">
+                    {isConnected ? 'NOVA: VOICE ONLINE' : (isConnecting ? 'ESTABLISHING UPLINK...' : 'NOVA: STANDBY')}
+                </span>
+                {!isConnected && !isConnecting && viewMode === 'voice' && isWakeWordListening && (
+                    <span className="text-[9px] font-mono text-zinc-600 tracking-tight flex items-center gap-1 animate-pulse">
+                        <Ear size={8} /> LISTENING FOR "HEY NOVA"
+                    </span>
+                )}
+            </div>
         </div>
         <div className="font-mono text-xs text-zinc-500 tracking-[0.2em] flex items-center gap-2">
             <Sparkles size={10} />
@@ -113,6 +132,20 @@ export const NovaInterface: React.FC = () => {
                             </p>
                         </motion.div>
                     )}
+                    
+                    {/* Wake Word Hint */}
+                    {!isConnected && !isConnecting && isWakeWordListening && (
+                         <motion.div 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="absolute bottom-32 md:bottom-40 text-center"
+                        >
+                            <p className="text-zinc-700 text-[10px] font-mono tracking-widest uppercase">
+                                Say "Hey Nova" to connect
+                            </p>
+                        </motion.div>
+                    )}
+
                 </motion.div>
             )}
 
